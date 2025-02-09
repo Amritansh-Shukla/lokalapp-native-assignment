@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // For the bookmark icon
+import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { BookmarkContext } from '../contexts/BookmarkContext';
+import { ThemeContext } from '../contexts/ThemeContext';
 
 export default function JobsScreen({ navigation }) {
   const [jobs, setJobs] = useState([]);
@@ -10,6 +11,33 @@ export default function JobsScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const { bookmarks, addBookmark, removeBookmark } = useContext(BookmarkContext);
+  const { theme, toggleTheme } = useContext(ThemeContext);
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    // Set the navigation options dynamically
+    navigation.setOptions({
+      title: "Jobs",
+      headerRight: () => (
+        <TouchableOpacity onPress={toggleTheme} style={styles.themeToggleButton}>
+          <Ionicons 
+            name={theme === 'dark' ? 'sunny' : 'moon'} 
+            size={24} 
+            color={theme === 'dark' ? 'white' : 'black'} 
+          />
+        </TouchableOpacity>
+      ),
+      headerStyle: {
+        backgroundColor: theme === 'dark' ? '#121212' : 'white',
+      },
+      headerTitleStyle: {
+        color: theme === 'dark' ? 'white' : 'black',
+      },
+    });
+  }, [theme, navigation]);
 
   const fetchJobs = async () => {
     if (loading) return;
@@ -28,10 +56,6 @@ export default function JobsScreen({ navigation }) {
     }
   };
 
-  useEffect(() => {
-    fetchJobs();
-  }, []);
-
   const isBookmarked = (jobId) => bookmarks.some((bookmark) => bookmark.id === jobId);
 
   const handleBookmarkToggle = (job) => {
@@ -44,21 +68,26 @@ export default function JobsScreen({ navigation }) {
 
   const renderJobCard = ({ item }) => (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, theme === 'dark' ? styles.cardDark : styles.cardLight]}
       onPress={() => navigation.navigate('JobDetails', { job: item })}
     >
       <View style={styles.cardContent}>
-        <View style={{ flex: 1, flexShrink: 1 }}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.detail}>Location: {item.job_location_slug || "N/A"}</Text>
-          <Text style={styles.detail}>Salary: {item.salary_min || "N/A"}</Text>
-          <Text style={styles.detail}>Phone: {item.whatsapp_no || "N/A"}</Text>
+        <View style={styles.textContainer}>
+          <Text style={[styles.title, theme === 'dark' && styles.textDark]}>{item.title}</Text>
+          <Text style={[styles.detail, theme === 'dark' && styles.textDark]}>
+            Location: {item.job_location_slug || "N/A"}
+          </Text>
+          <Text style={[styles.detail, theme === 'dark' && styles.textDark]}>
+            Salary: {item.salary_min || "N/A"}
+          </Text>
         </View>
+
+        {/* Bookmark Icon */}
         <TouchableOpacity onPress={() => handleBookmarkToggle(item)} style={styles.bookmarkIcon}>
           <Ionicons
             name={isBookmarked(item.id) ? 'bookmark' : 'bookmark-outline'}
             size={24}
-            color={isBookmarked(item.id) ? 'blue' : 'gray'}
+            color={theme === 'dark' ? 'blue' : 'gray'}
           />
         </TouchableOpacity>
       </View>
@@ -66,55 +95,56 @@ export default function JobsScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      {error && <Text style={styles.error}>Failed to load jobs. Please try again later.</Text>}
+    <View style={[styles.container, theme === 'dark' ? styles.containerDark : styles.containerLight]}>
+      {error && <Text style={[styles.error, theme === 'dark' && styles.textDark]}>Failed to load jobs.</Text>}
+
       <FlatList
         data={jobs}
         renderItem={renderJobCard}
         keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
         onEndReached={fetchJobs}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={loading ? <ActivityIndicator size="large" /> : null}
+        ListFooterComponent={loading ? <ActivityIndicator size="large" color={theme === 'dark' ? 'white' : 'black'} /> : null}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    padding: 10 
-  },
-  card: { 
-    padding: 15, 
-    marginVertical: 10, 
-    backgroundColor: '#f9f9f9', 
-    borderRadius: 10 
-  },
+  container: { flex: 1, padding: 10 },
+  containerLight: { backgroundColor: 'white' },
+  containerDark: { backgroundColor: '#121212' },
+
+  card: { padding: 15, marginVertical: 10, borderRadius: 10 },
+  cardLight: { backgroundColor: '#f9f9f9' },
+  cardDark: { backgroundColor: '#1e1e1e' },
+
   cardContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap', // Allow items to wrap if space is limited
   },
-  title: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    flexShrink: 1, // Prevents text from overflowing
+
+  textContainer: {
+    flex: 1,
+    marginRight: 10,
   },
-  detail: { 
-    fontSize: 16, 
-    color: '#555',
-    flexShrink: 1, 
-  },
+
+  title: { fontSize: 18, fontWeight: 'bold' },
+  detail: { fontSize: 16, color: '#555' },
+
+  textDark: { color: 'white' },
+
+  error: { color: 'red', textAlign: 'center', marginVertical: 10 },
+
   bookmarkIcon: {
-    marginLeft: 10, // Ensures some spacing
-    minWidth: 30, // Prevents it from disappearing
-    alignSelf: 'center',
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  error: { 
-    color: 'red', 
-    textAlign: 'center', 
-    marginVertical: 10 
+
+  // Theme Toggle Button (in Navbar)
+  themeToggleButton: {
+    marginRight: 15, // Add spacing from the right side
   },
 });
